@@ -1,0 +1,434 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WebApi.TicTacToe</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@microsoft/signalr@6.0.1/dist/browser/signalr.min.js"></script>
+</head>
+<body>
+
+    <!--Блок сообщений-->
+    <div id="messageForm" class="alert alert-primary" role="alert" style="display:none;">
+        Сообщение: <span id="message"></span>
+    </div>
+
+    <!--Главный блок-->
+    <div id="userInfo" style="display:none;" class="position-absolute top-50 start-50 translate-middle">
+        <p>Добро пожаловать <strong><span id="userName"></span></strong></p>
+        <input type="button" value="Играть" id="roomCreate" class="btn btn-primary" />
+        <input type="button" value="Поиск комнат" id="roomFind" class="btn btn-primary" />
+        <input type="button" value="Выйти" id="logOut" class="btn btn-primary" />
+    </div>
+
+    <!--Блок входа и регистрации-->
+    <div id="loginForm" class="position-absolute top-50 start-50 translate-middle">
+        <p>
+            <label class="form-label">Введите логин</label><br />
+            <input type="text" id="login" class="form-control" />
+        </p>
+        <p>
+            <label class="form-label">Введите пароль</label><br />
+            <input type="password" id="password" class="form-control" />
+        </p>
+        <input type="submit" id="submitLogin" class="btn btn-primary enter" value="Войти" />
+        <input type="submit" id="submitRegister" class="btn btn-primary" value="Регистрация" />
+    </div>
+
+    <!--Блок ожидание игры для хоста-->
+    <div id="sekundomers" style="display:none;" class="position-absolute top-50 start-50 translate-middle">
+        <p>Ожидание игры:</p>
+        <div class="time">
+            <span id="minute">00</span>
+            <span id="second">00</span>
+            <span id="ms">00</span>
+            <button id="exitRoom" class="btn btn-primary">Отмена</button>
+        </div>
+    </div>
+
+    <!--Блок список игр-->
+    <div id="roomList" style="display:none;" class="position-absolute top-50 start-50 translate-middle">
+        <span>Список комнат:</span>
+        <button id="exit" class="btn btn-primary" onclick="exit();">Назад</button>
+        <br />
+    </div>
+
+    <!--Блок игра-->
+    <div id="gameRoom" class="position-absolute top-50 start-50 translate-middle" style="display:none;">
+        <span id="playerOne" class="pl">Игрок 1</span>
+        <span id="playerTwo" class="pltwo">Игрок 2</span>
+        <table>
+
+            <tr>
+                <td><button id="id_1_1" onclick="foo(1, 1)" class="test"></button></td>
+                <td><button id="id_1_2" onclick="foo(1, 2)" class="test"></button></td>
+                <td><button id="id_1_3" onclick="foo(1, 3)" class="test"></button></td>
+            </tr>
+
+            <tr>
+                <td><button id="id_2_1" onclick="foo(2, 1)" class="test"></button></td>
+                <td><button id="id_2_2" onclick="foo(2, 2)" class="test"></button></td>
+                <td><button id="id_2_3" onclick="foo(2, 3)" class="test"></button></td>
+            </tr>
+
+            <tr>
+                <td><button id="id_3_1" onclick="foo(3, 1)" class="test"></button></td>
+                <td><button id="id_3_2" onclick="foo(3, 2)" class="test"></button></td>
+                <td><button id="id_3_3" onclick="foo(3, 3)" class="test"></button></td>
+            </tr>
+
+        </table>
+        <span id="resultGame"></span>
+        <button id="exGame" class="btn btn-primary">Выход</button>
+    </div>
+
+    <script>
+
+        var tokenKey = "accessToken";
+        var timer = 0;
+        var timerInterval;
+        var ms = document.getElementById('ms');
+        var second = document.getElementById('second');
+        var minute = document.getElementById('minute');
+        var countButton = 0;
+        var playerMakeMove = "";
+        var roomName = "";
+        var obj = null;
+
+        const hub = new signalR.HubConnectionBuilder().withUrl("/gameHub").build();
+        hub.on('NotifyGroupAsync', function (message) {
+            timer = 0;
+            clearInterval(timerInterval);
+            createGame(message);
+        });
+
+        hub.on('NotifyGroupPlayerMadeMoveAsync', function (gameDTO) {
+            obj = gameDTO;
+            document.getElementById("messageForm").style.display = "none";
+            playerMakeMove = obj.playerMakeMove;   
+            document.getElementById('id_' + obj.row + '_' + obj.column).innerHTML = obj.numberOfMoves % 2 === 0 ? "O" : "X";                 
+        });
+
+        hub.on('NotifyResultGame', function (listPlayers) {
+
+            for (var i = 0; i < listPlayers.length; i++) {
+                if (listPlayers[i].player.name === document.getElementById("userName").innerText) {
+                    document.getElementById("resultGame").innerText = listPlayers[i].resultGame === 0 ? "ПОБЕДА" :
+                        listPlayers[i].resultGame === 1 ? "НИЧЬЯ" : "ПРОИГРЫШ";
+                }
+            }
+
+            for (var i = 1; i <= countButton; i++) {
+                var el = document.getElementById("room" + i);
+                el.remove();
+            }
+            hub.invoke("RemoveUserFromGroupAsync", obj.room);
+            roomName = "";
+        });
+        hub.start();
+
+        async function foo(row, column) {
+
+            const user = document.getElementById("login").value;
+            document.getElementById("messageForm").style.display = "none";
+           if (playerMakeMove === user) {
+
+                const token = sessionStorage.getItem(tokenKey);
+                obj.row = row;
+                obj.column = column;
+                obj.numberOfMoves++;
+
+                const response = await fetch("/api/Game", {
+                    mode: "cors",
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify(obj)
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    document.getElementById("message").innerText = data.message;
+                    document.getElementById("messageForm").style.display = "block";
+                }
+
+            }
+            else {
+                document.getElementById("message").innerText = "Ход игрока - " + playerMakeMove;
+                document.getElementById("messageForm").style.display = "block";
+            }
+        }
+
+        //для двух игроков игра 3*3
+        function createGame(data) {
+            document.getElementById("messageForm").style.display = "none";
+            document.getElementById("sekundomers").style.display = "none";
+            document.getElementById("roomList").style.display = "none";
+            document.getElementById("gameRoom").style.display = "block";
+
+            document.getElementById("playerOne").innerHTML = data.queuePlayers[0];
+            document.getElementById("playerTwo").innerHTML = data.queuePlayers[1];
+            playerMakeMove = data.playerMakeMove;
+            roomName = data.room;
+
+            obj = data;
+        }
+
+        function exit() {
+            document.getElementById("userInfo").style.display = "block";
+            document.getElementById("roomList").style.display = "none";
+            for (var i = 1; i <= countButton; i++) {
+                var el = document.getElementById("room" + i);
+                el.remove();
+            }
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(function () {
+                timer += 1 / 60;
+                msVal = Math.floor((timer - Math.floor(timer)) * 100);
+                secondVal = Math.floor(timer) - Math.floor(timer / 60) * 60;
+                minuteVal = Math.floor(timer / 60);
+                ms.innerHTML = msVal < 10 ? "0" + msVal.toString() : msVal;
+                second.innerHTML = secondVal < 10 ? "0" + secondVal.toString() : secondVal;
+                minute.innerHTML = minuteVal < 10 ? "0" + minuteVal.toString() : minuteVal;
+            }, 1000 / 60);
+        }
+
+        document.getElementById("exGame").addEventListener("click", async e => {
+
+            e.preventDefault();
+            const token = sessionStorage.getItem(tokenKey);
+            const user = document.getElementById("login").value;
+            const response = await fetch(`/api/Rooms/${user}`, {
+                mode: "cors",
+                method: "DELETE",
+                headers: {
+                    "Accept": "application/json",
+                    "Authorization": "Bearer " + token
+                }
+            });
+            document.getElementById("gameRoom").style.display = "none";
+            document.getElementById("userInfo").style.display = "block";
+            obj = null;
+            playerMakeMove = "";
+            document.getElementById("messageForm").style.display = "none";
+            for (var i = 1; i < 4; i++) {
+                for (var j = 1; j < 4; j++) {
+                    document.getElementById('id_' + i + '_' + j).innerHTML = "";
+                }
+            }
+            document.getElementById("resultGame").innerText = "";
+
+        });
+
+        //Выход из комнаты
+        document.getElementById("exitRoom").addEventListener("click", async e => {
+            e.preventDefault();
+            const token = sessionStorage.getItem(tokenKey);
+            const user = document.getElementById("login").value;
+            const response = await fetch(`/api/Rooms/${user}`, {
+                mode: "cors",
+                method: "DELETE",
+                headers: {
+                    "Accept": "application/json",
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (response.ok) {
+                document.getElementById("userInfo").style.display = "block";
+                document.getElementById("sekundomers").style.display = "none";
+                document.getElementById("messageForm").style.display = "none";
+                timer = 0;
+                clearInterval(timerInterval);
+                hub.invoke("RemoveUserFromGroupAsync", user);
+            }
+            else {
+                const data = await response.json();
+                document.getElementById("message").innerText = data.message;
+                document.getElementById("messageForm").style.display = "block";
+            }
+
+
+        });
+        //Вход
+        document.getElementById("submitLogin").addEventListener("click", async e => {
+            e.preventDefault();
+
+            const response = await fetch("/api/Auth/Login", {
+                mode: "cors",
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    Login: document.getElementById("login").value,
+                    Password: document.getElementById("password").value
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok === true) {
+                document.getElementById("userName").innerText = data.user.name;
+                document.getElementById("userInfo").style.display = "block";
+                document.getElementById("loginForm").style.display = "none";
+                document.getElementById("messageForm").style.display = "none";
+                sessionStorage.setItem(tokenKey, data.accessToken);
+            }
+            else {
+                document.getElementById("message").innerText = data.message;
+                document.getElementById("messageForm").style.display = "block";
+            }
+
+        });
+        //Регистрация
+        document.getElementById("submitRegister").addEventListener("click", async e => {
+            e.preventDefault();
+            const response = await fetch("/api/Auth/Register", {
+                mode: "cors",
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    Login: document.getElementById("login").value,
+                    Password: document.getElementById("password").value
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok === true) {
+                document.getElementById("userName").innerText = data.user.name;
+                document.getElementById("userInfo").style.display = "block";
+                document.getElementById("loginForm").style.display = "none";
+                document.getElementById("messageForm").style.display = "none";
+                sessionStorage.setItem(tokenKey, data.access_token);
+            }
+            else {
+                document.getElementById("messageForm").style.display = "block";
+                if (data.message === undefined) {
+                    document.getElementById("message").innerText = data.errors.Login[0] + " и " + data.errors.Password[0];
+                }
+                else {
+                    document.getElementById("message").innerText = data.message;
+                }
+            }
+
+        });
+        //Создание комнаты
+        document.getElementById("roomCreate").addEventListener("click", async e => {
+            e.preventDefault();
+            const token = sessionStorage.getItem(tokenKey);
+            const user = document.getElementById("login").value;
+            const response = await fetch(`/api/Rooms?userName=${user}`, {
+                mode: "cors",
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                startTimer();
+                hub.invoke("AddUserInGroupAsync", user);
+                document.getElementById("messageForm").style.display = "none";
+                document.getElementById("userInfo").style.display = "none";
+                document.getElementById("sekundomers").style.display = "block";
+            }
+            else {
+                document.getElementById("messageForm").style.display = "block";
+                document.getElementById("message").innerText = data.message;
+            }
+        });
+        //Поиск комнат
+        document.getElementById("roomFind").addEventListener("click", async e => {
+            document.getElementById("messageForm").style.display = "none";
+            e.preventDefault();
+            const token = sessionStorage.getItem(tokenKey);
+            const response = await fetch("/api/Rooms", {
+                mode: "cors",
+                method: "GET",
+                headers: {
+                    "Accept": "application/json",
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById("roomList").style.display = "block";
+                document.getElementById("userInfo").style.display = "none";
+                createListRooms(data)
+            }
+
+        });
+        //Получить список комнат
+        function createListRooms(data) {
+            var div = document.getElementById('roomList');
+            countButton = 0;
+            const user = document.getElementById("login").value;
+            const token = sessionStorage.getItem(tokenKey);
+
+            for (var i = 0; i < data.length; i++) {
+
+                countButton++;
+                var button = document.createElement('button');
+                button.classList = "btn btn-outline-primary";
+                button.innerText = data[i].nameRoom;
+                button.id = "room" + countButton;
+
+                button.addEventListener('click', async e => {
+                    e.preventDefault();
+                    var roomName = document.getElementById(e.target.id).innerText;                   
+                    const response = await fetch(`/api/Rooms/${roomName}?userName=${user}`, {
+                        mode: "cors",
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json",
+                            "Authorization": "Bearer " + token
+                        }
+                    });
+
+                    if (response.ok) {
+                        //Включаем ожидание игры в данном случае не нужно
+                        hub.invoke("AddUserInGroupAsync", roomName);
+                        const data = await response.json();
+                        createGame(data);
+                    }
+                    else {
+                        const data = await response.json();
+                        document.getElementById("messageForm").style.display = "block";
+                        document.getElementById("message").innerText = data.message;
+                        exit();
+                    }
+
+                });
+
+                div.appendChild(button);
+            }
+        }
+        //Текущая игра
+
+        document.getElementById("logOut").addEventListener("click", e => {
+
+            e.preventDefault();
+            document.getElementById("userName").innerText = "";
+            document.getElementById("message").innerText = "";
+            document.getElementById("userInfo").style.display = "none";
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("messageForm").style.display = "none";
+            sessionStorage.removeItem(tokenKey);
+        });
+    </script>
+</body>
+</html>
