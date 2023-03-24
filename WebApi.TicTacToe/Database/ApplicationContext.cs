@@ -6,7 +6,10 @@ namespace WebApi.TicTacToe.Database
     public class ApplicationContext : DbContext
     {
         public ApplicationContext(DbContextOptions<ApplicationContext> options) :
-            base(options) { }
+            base(options) 
+        {
+            Database.EnsureCreated();
+        }
         
         public DbSet<User> Users => Set<User>();
         public DbSet<Room> Rooms => Set<Room>();
